@@ -518,6 +518,9 @@ request_transfer_in(struct spdk_nvmf_request *req)
 	rc = ibv_post_send(rdma_qpair->cm_id->qp, &rdma_req->data.wr, &bad_wr);
 	if (rc) {
 		SPDK_ERRLOG("Unable to transfer data from host to target\n");
+
+		/* Decrement r/w counter back since data transfer is not happening */
+		rdma_qpair->cur_rdma_rw_depth--;
 		return -1;
 	}
 
@@ -584,6 +587,10 @@ request_transfer_out(struct spdk_nvmf_request *req)
 	rc = ibv_post_send(rdma_qpair->cm_id->qp, send_wr, &bad_send_wr);
 	if (rc) {
 		SPDK_ERRLOG("Unable to send response capsule\n");
+
+		/* Decrement r/w counter back since data transfer is not happening */
+		if (rdma_req->data.wr.opcode == IBV_WR_RDMA_WRITE)
+			rdma_qpair->cur_rdma_rw_depth--;
 	}
 
 	return rc;
